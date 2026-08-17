@@ -16,30 +16,30 @@ def main() -> None:
     app.setStyleSheet(app_stylesheet())
 
     window = MainWindow()
-    window.input_path.setText("C:/Research/example_survey.sav")
-    window.output_name.setText("example_survey")
-    window.output_dir.setText("C:/Research/codebook")
+    window.input_path.setText("C:/Research/entrepreneurship_survey.sav")
+    window.output_name.setText("entrepreneurship_survey")
+    window.output_dir.setText("C:/Research/codebooks")
     window._populate_tables(  # noqa: SLF001 - dedicated visual documentation helper
         CodebookResult(
             preview=pd.DataFrame(
                 {
-                    "founder_id": [101, 102, 103],
-                    "gender": ["1 - Woman", "2 - Man", "1 - Woman"],
-                    "employees": [4, 12, 7],
+                    "venture_id": [101, 102, 103],
+                    "venture_stage": ["1 - Idea", "2 - Early revenue", "3 - Growth"],
+                    "employees": [2, 8, 24],
                 }
             ),
             variables=pd.DataFrame(
                 {
-                    "variable_name": ["founder_id", "gender", "employees"],
-                    "variable_label": ["Founder ID", "Gender", "Number of employees"],
+                    "variable_name": ["venture_id", "venture_stage", "employees"],
+                    "variable_label": ["Venture ID", "Venture stage", "Number of employees"],
                     "storage_type": ["double", "double", "double"],
                 }
             ),
             value_labels=pd.DataFrame(
                 {
-                    "variable_name": ["gender", "gender"],
-                    "value": ["1", "2"],
-                    "value_label": ["Woman", "Man"],
+                    "variable_name": ["venture_stage", "venture_stage", "venture_stage"],
+                    "value": ["1", "2", "3"],
+                    "value_label": ["Idea", "Early revenue", "Growth"],
                 }
             ),
             missing_values=pd.DataFrame(
@@ -55,6 +55,13 @@ def main() -> None:
             ),
         )
     )
+    window.status_label.setText(
+        "Analysis complete. Review the tables or export the codebook."
+    )
+    window.tabs.setCurrentIndex(2)
+    value_labels_table = window.tabs.widget(2)
+    value_labels_table.setColumnWidth(0, 220)
+    value_labels_table.setColumnWidth(1, 130)
     window.resize(1180, 780)
     window.show()
     app.processEvents()

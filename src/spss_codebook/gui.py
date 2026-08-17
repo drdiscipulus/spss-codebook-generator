@@ -216,7 +216,9 @@ class MainWindow(QMainWindow):
         layout.setSpacing(4)
         title = QLabel("SPSS Codebook Rescue")
         title.setObjectName("pageTitle")
-        subtitle = QLabel("Turn embedded SPSS metadata into a transparent, reusable codebook.")
+        subtitle = QLabel(
+            "Open an SPSS file, inspect its metadata, and export a ready-to-use codebook."
+        )
         subtitle.setObjectName("pageSubtitle")
         layout.addWidget(title)
         layout.addWidget(subtitle)
