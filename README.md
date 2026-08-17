@@ -148,8 +148,7 @@ The script runs linting and tests before creating:
 - `dist/SPSS-Codebook-Rescue-Windows.zip`
 - `dist/SPSS-Codebook-Rescue-Windows.zip.sha256`
 
-Pushing a tag such as `v0.1.0` triggers the same verified Windows build and
-creates a GitHub release automatically.
+The ZIP file and its checksum can then be attached to a GitHub release manually.
 
 ## Current limitations
 
