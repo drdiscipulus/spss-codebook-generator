@@ -76,8 +76,7 @@ def test_codebook_extracts_labels_missing_values_and_warnings(tmp_path):
     assert age_missing["label"] == "No answer"
 
     gender_three = result.value_labels[
-        (result.value_labels["variable_name"] == "gender")
-        & (result.value_labels["value"] == "3")
+        (result.value_labels["variable_name"] == "gender") & (result.value_labels["value"] == "3")
     ].iloc[0]
     assert gender_three["source"] == "observed_unlabelled"
     assert gender_three["value_label"] == ""
@@ -131,10 +130,16 @@ def test_exports_excel_and_csv_with_expected_files_and_sheets(tmp_path):
     }
     assert {path.name for path in export_result.written_files} == expected_names
 
-    workbook = openpyxl.load_workbook(tmp_path / "study_codebook.xlsx", read_only=True)
+    workbook = openpyxl.load_workbook(tmp_path / "study_codebook.xlsx")
     assert workbook.sheetnames == ["variables", "value_labels", "missing_values", "warnings"]
+    variables_sheet = workbook["variables"]
+    assert variables_sheet.freeze_panes == "A2"
+    assert variables_sheet.auto_filter.ref == variables_sheet.dimensions
+    assert variables_sheet["A1"].font.bold is True
 
-    variables_header = (tmp_path / "study_variables.csv").read_text(encoding="utf-8").splitlines()[0]
+    variables_header = (
+        (tmp_path / "study_variables.csv").read_text(encoding="utf-8").splitlines()[0]
+    )
     assert variables_header == ",".join(VARIABLE_COLUMNS)
 
 
@@ -165,3 +170,42 @@ def test_gui_and_cli_share_workflow_pipeline(tmp_path):
     )
 
     assert (tmp_path / "workflow_codebook.xlsx") in export_result.written_files
+
+
+def test_rejects_missing_input_file(tmp_path):
+    with pytest.raises(FileNotFoundError, match="SPSS file not found"):
+        build_codebook(tmp_path / "missing.sav")
+
+
+def test_rejects_export_without_a_format(tmp_path):
+    sav_path = write_fixture(tmp_path / "fixture.sav")
+    result = build_codebook(sav_path)
+
+    with pytest.raises(ValueError, match="at least one export format"):
+        export_codebook(
+            result,
+            ExportOptions(
+                output_dir=tmp_path,
+                output_name="study",
+                export_excel=False,
+                export_csv=False,
+            ),
+        )
+
+
+def test_range_missing_values_are_marked_in_value_labels(tmp_path):
+    sav_path = tmp_path / "range_missing.sav"
+    df = pd.DataFrame({"score": [1, 95, 99]})
+    pyreadstat.write_sav(
+        df,
+        str(sav_path),
+        variable_value_labels={"score": {1: "Valid", 95: "Refused", 99: "Unknown"}},
+        missing_ranges={"score": [{"lo": 90, "hi": 99}]},
+    )
+
+    result = build_codebook(sav_path)
+
+    labelled = result.value_labels.set_index("value")
+    assert bool(labelled.loc["1", "is_user_missing"]) is False
+    assert bool(labelled.loc["95", "is_user_missing"]) is True
+    assert bool(labelled.loc["99", "is_user_missing"]) is True

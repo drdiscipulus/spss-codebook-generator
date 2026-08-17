@@ -1,8 +1,45 @@
+# Python bytecode and package metadata
 __pycache__/
 *.py[cod]
 *.egg-info/
-.pytest_cache/
+
+# Local environments and secrets
 .venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Test, lint, type-check, and coverage caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Packaging and generated release assets
 build/
 dist/
 *.spec
+/assets/app-icon.ico
+/assets/app-icon.png
+
+# Research data and generated codebooks
+*.sav
+*.zsav
+*_codebook.xlsx
+*_variables.csv
+*_value_labels.csv
+*_missing_values.csv
+*_warnings.csv
+
+# Editors, operating systems, and temporary files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+*.tmp
+*~
