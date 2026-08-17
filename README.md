@@ -31,7 +31,7 @@ All processing happens on your computer and the app does not upload anything.
 ## Quick start on Windows
 
 1. Download `SPSS-Codebook-Rescue-Windows.zip` from the
-   [latest release](https://github.com/drdiscipulus/spss-codebook-rescue/releases/latest).
+   [latest release](https://github.com/drdiscipulus/spss_codebook_generator/releases/latest).
 2. Extract the ZIP file to a folder you can write to.
 3. Open `SPSS Codebook Rescue.exe`.
 4. Choose or drag in a `.sav` or `.zsav` file.

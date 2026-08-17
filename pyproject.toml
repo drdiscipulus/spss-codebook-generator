@@ -41,9 +41,9 @@ spss-codebook-rescue = "spss_codebook.cli:main"
 spss-codebook-rescue-gui = "spss_codebook.gui:main"
 
 [project.urls]
-Homepage = "https://github.com/drdiscipulus/spss-codebook-rescue"
-Repository = "https://github.com/drdiscipulus/spss-codebook-rescue"
-Issues = "https://github.com/drdiscipulus/spss-codebook-rescue/issues"
+Homepage = "https://github.com/drdiscipulus/spss_codebook_generator"
+Repository = "https://github.com/drdiscipulus/spss_codebook_generator"
+Issues = "https://github.com/drdiscipulus/spss_codebook_generator/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
