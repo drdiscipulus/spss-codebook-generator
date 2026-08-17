@@ -11,7 +11,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Create the CLI parser used by tests and the installed console script."""
 
     parser = argparse.ArgumentParser(
-        prog="spss-codebook",
+        prog="spss-codebook-rescue",
         description="Generate Excel and CSV codebooks from SPSS .sav/.zsav files.",
     )
     parser.add_argument("input_file", type=Path)
@@ -19,7 +19,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-name", required=True)
     parser.add_argument("--no-excel", action="store_true", help="Do not write the Excel codebook.")
     parser.add_argument("--no-csv", action="store_true", help="Do not write CSV codebook tables.")
-    parser.add_argument("--no-frequencies", action="store_true", help="Leave frequency columns empty.")
+    parser.add_argument(
+        "--no-frequencies", action="store_true", help="Leave frequency columns empty."
+    )
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing output files.")
     parser.add_argument("--preview-rows", type=int, default=500)
     return parser

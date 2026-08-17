@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import pyreadstat
-
 
 SUPPORTED_SUFFIXES = {".sav", ".zsav"}
 
@@ -75,10 +76,7 @@ def build_codebook(
     into long-form tables that are easy to inspect in Excel or import into R.
     """
 
-    path = Path(input_path)
-    if path.suffix.lower() not in SUPPORTED_SUFFIXES:
-        supported = ", ".join(sorted(SUPPORTED_SUFFIXES))
-        raise ValueError(f"Unsupported input format '{path.suffix}'. Supported formats: {supported}.")
+    path = _validate_input_path(input_path)
     if preview_rows < 0:
         raise ValueError("preview_rows must be zero or greater.")
 
@@ -106,14 +104,19 @@ def build_codebook(
         series = df[variable_name]
         variable_label = variable_labels.get(variable_name, "")
         label_map = value_label_maps.get(variable_name, {}) or {}
-        normalized_labels = {_normal_key(value): (value, label) for value, label in label_map.items()}
+        normalized_labels = {
+            _normal_key(value): (value, label) for value, label in label_map.items()
+        }
         missing_specs = _missing_specs(variable_name, missing_ranges, missing_user_values)
-        missing_keys = _missing_keys(missing_specs)
-
         non_system_missing = series.dropna()
         observed_counts = non_system_missing.value_counts(dropna=True)
+        observed_counts_by_key = {
+            _normal_key(value): int(count) for value, count in observed_counts.items()
+        }
         observed_keys = {_normal_key(value) for value in observed_counts.index}
-        user_missing_mask = non_system_missing.map(lambda value: _is_user_missing(value, missing_specs))
+        user_missing_mask = non_system_missing.map(
+            partial(_is_user_missing, missing_specs=missing_specs)
+        )
         n_user_missing = int(user_missing_mask.sum()) if len(non_system_missing) else 0
         n_system_missing = int(series.isna().sum())
         n_missing = n_system_missing + n_user_missing
@@ -170,16 +173,18 @@ def build_codebook(
 
         denominator = int(len(non_system_missing))
         for label_value, value_label in label_map.items():
-            count = _observed_count_for_key(observed_counts, _normal_key(label_value))
+            count = observed_counts_by_key.get(_normal_key(label_value), 0)
             value_label_rows.append(
                 {
                     "variable_name": variable_name,
                     "variable_label": variable_label,
                     "value": _display_value(label_value),
                     "value_label": value_label,
-                    "is_user_missing": _normal_key(label_value) in missing_keys,
+                    "is_user_missing": _is_user_missing(label_value, missing_specs),
                     "observed_count": count if calculate_frequencies else "",
-                    "observed_percent": _percent(count, denominator) if calculate_frequencies else "",
+                    "observed_percent": _percent(count, denominator)
+                    if calculate_frequencies
+                    else "",
                     "source": "spss_value_label",
                 }
             )
@@ -204,9 +209,11 @@ def build_codebook(
                         "variable_label": variable_label,
                         "value": _display_value(observed_value),
                         "value_label": "",
-                        "is_user_missing": observed_key in missing_keys,
+                        "is_user_missing": _is_user_missing(observed_value, missing_specs),
                         "observed_count": count if calculate_frequencies else "",
-                        "observed_percent": _percent(count, denominator) if calculate_frequencies else "",
+                        "observed_percent": _percent(count, denominator)
+                        if calculate_frequencies
+                        else "",
                         "source": "observed_unlabelled",
                     }
                 )
@@ -220,6 +227,21 @@ def build_codebook(
     )
 
 
+def _validate_input_path(input_path: str | Path) -> Path:
+    """Return a validated SPSS input path with user-facing error messages."""
+
+    path = Path(input_path).expanduser()
+    if path.suffix.lower() not in SUPPORTED_SUFFIXES:
+        supported = ", ".join(sorted(SUPPORTED_SUFFIXES))
+        suffix = path.suffix or "(none)"
+        raise ValueError(f"Unsupported input format '{suffix}'. Supported formats: {supported}.")
+    if not path.exists():
+        raise FileNotFoundError(f"SPSS file not found: {path}")
+    if not path.is_file():
+        raise ValueError(f"Input path is not a file: {path}")
+    return path
+
+
 def _column_labels(meta: Any) -> dict[str, str]:
     labels = getattr(meta, "column_names_to_labels", None)
     if labels:
@@ -227,7 +249,10 @@ def _column_labels(meta: Any) -> dict[str, str]:
 
     names = getattr(meta, "column_names", []) or []
     raw_labels = getattr(meta, "column_labels", []) or []
-    return {name: (raw_labels[index] if index < len(raw_labels) and raw_labels[index] else "") for index, name in enumerate(names)}
+    return {
+        name: (raw_labels[index] if index < len(raw_labels) and raw_labels[index] else "")
+        for index, name in enumerate(names)
+    }
 
 
 def _missing_specs(
@@ -256,14 +281,6 @@ def _missing_specs(
     return specs
 
 
-def _missing_keys(missing_specs: list[dict[str, Any]]) -> set[tuple[str, Any]]:
-    keys: set[tuple[str, Any]] = set()
-    for spec in missing_specs:
-        if spec["missing_type"] == "discrete":
-            keys.add(_normal_key(spec.get("value")))
-    return keys
-
-
 def _is_user_missing(value: Any, missing_specs: list[dict[str, Any]]) -> bool:
     value_key = _normal_key(value)
     for spec in missing_specs:
@@ -280,21 +297,18 @@ def _is_user_missing(value: Any, missing_specs: list[dict[str, Any]]) -> bool:
     return False
 
 
-def _label_for_missing(spec: dict[str, Any], normalized_labels: dict[tuple[str, Any], tuple[Any, str]]) -> str:
+def _label_for_missing(
+    spec: dict[str, Any], normalized_labels: dict[tuple[str, Any], tuple[Any, str]]
+) -> str:
     if spec["missing_type"] != "discrete":
         return ""
     label = normalized_labels.get(_normal_key(spec.get("value")))
     return label[1] if label else ""
 
 
-def _observed_count_for_key(observed_counts: pd.Series, key: tuple[str, Any]) -> int:
-    for observed_value, count in observed_counts.items():
-        if _normal_key(observed_value) == key:
-            return int(count)
-    return 0
-
-
-def _format_preview(preview: pd.DataFrame, value_label_maps: dict[str, dict[Any, str]]) -> pd.DataFrame:
+def _format_preview(
+    preview: pd.DataFrame, value_label_maps: dict[str, dict[Any, str]]
+) -> pd.DataFrame:
     formatted = preview.copy()
     for column in formatted.columns:
         label_map = value_label_maps.get(column, {}) or {}
@@ -302,7 +316,7 @@ def _format_preview(preview: pd.DataFrame, value_label_maps: dict[str, dict[Any,
             continue
         normalized_labels = {_normal_key(value): label for value, label in label_map.items()}
         formatted[column] = formatted[column].map(
-            lambda value: _preview_value(value, normalized_labels),
+            partial(_preview_value, normalized_labels=normalized_labels),
             na_action=None,
         )
     return formatted
@@ -323,10 +337,8 @@ def _normal_key(value: Any) -> tuple[str, Any]:
     if pd.isna(value):
         return ("missing", "")
     if hasattr(value, "item"):
-        try:
+        with suppress(ValueError):
             value = value.item()
-        except ValueError:
-            pass
     if isinstance(value, float) and value.is_integer():
         return ("number", int(value))
     if isinstance(value, (int, float)):
@@ -340,10 +352,8 @@ def _display_value(value: Any) -> str:
     if pd.isna(value):
         return ""
     if hasattr(value, "item"):
-        try:
+        with suppress(ValueError):
             value = value.item()
-        except ValueError:
-            pass
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return str(value)

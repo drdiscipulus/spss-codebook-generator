@@ -1,43 +1,65 @@
-# SPSS Codebook Generator
+# SPSS Codebook Rescue
 
-Portable Windows/macOS app and CLI for generating R-friendly codebooks from SPSS
-`.sav` and `.zsav` files.
+A small, local-first desktop app for turning the metadata embedded in SPSS
+`.sav` and `.zsav` files into readable Excel and CSV codebooks.
 
-SPSS datasets often contain the metadata analysts need, but that information is
-stored in the file's variable labels, value labels, and user-missing definitions
-instead of in a readable codebook. This project extracts those metadata fields
-and writes them as explicit Excel and CSV tables that are easy to inspect and
-straightforward to import into R.
+![SPSS Codebook Rescue desktop interface](docs/assets/application.png)
 
-## Features
+## Why this exists
 
-- Read SPSS `.sav` and `.zsav` files without SPSS.
-- Export a human-readable Excel codebook.
-- Export UTF-8 CSV tables with stable English column names for R workflows.
-- Preserve raw SPSS codes while attaching variable labels and value labels.
-- Mark SPSS user-missing values.
-- Calculate optional observed frequencies.
-- Show warnings for missing variable labels and partially labelled variables.
-- Provide a basic desktop viewer for data preview and codebook tables.
+Every now and then, a project hands me an SPSS file to work with but I prefer to work in R. Those files often arrive with a patchy codebook, or no codebook at all, which turns even simple data work into an avoidable guessing game and a lot of back and forth.
 
-## Output files
+So I built this little app: give it an SPSS file and it turns the metadata still
+embedded in that file into a readable codebook. It does not magically restore
+documentation that was never there, but it makes the most of what is available
+and lets me get back to the actual analysis, using the tidy data format, a little faster.
 
-For an output name such as `study_codebook`, the app can write:
+All processing happens on your computer and the app does not upload anything.
 
-- `study_codebook_codebook.xlsx`
-- `study_codebook_variables.csv`
-- `study_codebook_value_labels.csv`
-- `study_codebook_missing_values.csv`
-- `study_codebook_warnings.csv`
+## Highlights
 
-The Excel workbook contains the same four codebook sheets as the CSV exports:
+- Reads SPSS `.sav` and compressed `.zsav` files.
+- Extracts variable labels, value labels, formats, measurement levels, and
+  user-defined missing values.
+- Flags variables without labels and observed codes without value labels.
+- Optionally calculates observed counts and percentages.
+- Shows a labelled preview of the first 500 rows.
+- Exports a formatted Excel workbook and/or analysis-friendly UTF-8 CSV files.
+- Runs as a portable Windows app; Python and SPSS are not required.
+- Includes a command-line interface for reproducible workflows.
 
-- `variables`
-- `value_labels`
-- `missing_values`
-- `warnings`
+## Quick start on Windows
 
-## Output schema
+1. Download `SPSS-Codebook-Rescue-Windows.zip` from the
+   [latest release](https://github.com/drdiscipulus/spss-codebook-rescue/releases/latest).
+2. Extract the ZIP file to a folder you can write to.
+3. Open `SPSS Codebook Rescue.exe`.
+4. Choose or drag in a `.sav` or `.zsav` file.
+5. Review the extracted tables and select **Export codebook**.
+
+The build is unsigned. Windows may show a Microsoft
+Defender SmartScreen prompt even when the downloaded checksum matches the
+release.
+
+A macOS version is not planned.
+
+## Generated files
+
+For an output name such as `study`, the app can create:
+
+| File | Contents |
+| --- | --- |
+| `study_codebook.xlsx` | All codebook tables in one formatted workbook |
+| `study_variables.csv` | One row per variable |
+| `study_value_labels.csv` | Value labels in long format |
+| `study_missing_values.csv` | Discrete and range-based user-missing definitions |
+| `study_warnings.csv` | Potential documentation gaps |
+
+The Excel workbook contains `variables`, `value_labels`, `missing_values`, and
+`warnings` sheets. Headers are filterable, the first row is frozen, and column
+widths are adjusted automatically.
+
+### Output schema
 
 `variables`
 
@@ -65,74 +87,86 @@ variable_name, missing_type, value, lower, upper, label
 severity, variable_name, value, message
 ```
 
-## GUI usage
+Raw SPSS codes are preserved. In `value_labels`, `observed_percent` is the share
+among non-system-missing rows, including SPSS user-missing codes. In
+`variables`, `n_observed` excludes both system-missing and user-missing values.
+
+## Install from source
+
+Python 3.12 is required.
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+```
 
 Start the desktop app:
 
 ```powershell
-spss-codebook-gui
+spss-codebook-rescue-gui
 ```
 
-Then:
-
-1. Select an input `.sav` or `.zsav` file.
-2. Enter an output name.
-3. Select an output folder.
-4. Choose Excel and/or CSV export.
-5. Optionally disable frequency calculation for very large files.
-6. Load the preview or export the codebook.
-
-The data preview shows the first 500 rows. If a value label exists, cells are
-displayed as `code - label`; otherwise the raw value is shown.
-
-## CLI usage
+Or generate a codebook from the command line:
 
 ```powershell
-spss-codebook input.sav --output-dir . --output-name study_codebook
+spss-codebook-rescue survey.sav --output-dir . --output-name survey
 ```
 
-Useful flags:
-
-- `--no-excel`
-- `--no-csv`
-- `--no-frequencies`
-- `--overwrite`
-- `--preview-rows 500`
+Useful CLI options include `--no-excel`, `--no-csv`, `--no-frequencies`,
+`--overwrite`, and `--preview-rows`.
 
 ## Development
 
-Use Python 3.12.
+The code follows a small, explicit pipeline:
 
-```powershell
-py -3.12 -m pip install -e ".[dev]"
-py -3.12 -m pytest
+```text
+SPSS file -> metadata extraction -> normalized pandas tables -> GUI / CLI -> Excel / CSV
 ```
 
-The test suite creates a small synthetic `.sav` fixture, so no private SPSS data
-is required for automated tests.
+- `src/spss_codebook/core.py` contains SPSS extraction and normalization.
+- `src/spss_codebook/exporters.py` owns all output formatting and file naming.
+- `src/spss_codebook/workflow.py` exposes the shared GUI/CLI workflow.
+- `src/spss_codebook/gui.py` contains the Qt desktop interface.
+- `tests/` uses synthetic SPSS fixtures; no private research data is required.
 
-## Windows build
+Run the quality checks with:
+
+```powershell
+python -m ruff check .
+python -m pytest -q
+```
+
+## Build a portable Windows app
 
 ```powershell
 .\scripts\build_windows.ps1
 ```
 
-The Windows build creates `dist/SPSS-Codebook-Generator-Windows.zip`.
+The script runs linting and tests before creating:
 
-## macOS build
+- `dist/SPSS-Codebook-Rescue-Windows.zip`
+- `dist/SPSS-Codebook-Rescue-Windows.zip.sha256`
 
-```bash
-./scripts/build_macos.sh
-```
+Pushing a tag such as `v0.1.0` triggers the same verified Windows build and
+creates a GitHub release automatically.
 
-The macOS build creates `dist/SPSS Codebook Generator.app`. Signing,
-notarization, and DMG packaging are intentionally left for a later release step.
+## Current limitations
 
-## Limitations
+- Multiple-response sets and some advanced SPSS metadata are not extracted yet.
+- Frequency calculation reads the complete dataset and can take time for large
+  files.
+- The data preview is intentionally limited to 500 rows.
 
-- Raw dataset export is intentionally out of scope for V1.
-- Multiple-response sets and advanced SPSS metadata are not handled yet.
-- Frequency calculation reads the dataset and can take time for large files.
-- CodeRabbit CLI review requires WSL on Windows; native Windows PowerShell is
-  not enough for the official CodeRabbit CLI installer.
-- No project license has been selected yet.
+## Project status
+
+This is a personal side project that I built in my spare time. I maintain it
+when time allows, so updates will likely be sporadic.
+
+## License and attribution
+
+SPSS Codebook Rescue is free and open-source software licensed under the
+[GNU General Public License version 3](LICENSE), specifically `GPL-3.0-only`.
+
+SPSS is a trademark of IBM. This independent project is not affiliated with or
+endorsed by IBM.

@@ -1,0 +1,41 @@
+name: Windows release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Build and verify portable app
+        shell: pwsh
+        run: .\scripts\build_windows.ps1 -PythonExecutable python
+      - name: Verify tag matches package version
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $version = python -c "from spss_codebook import __version__; print(__version__)"
+          if ("v$version" -ne $env:RELEASE_TAG) {
+            throw "Tag $env:RELEASE_TAG does not match package version $version."
+          }
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          gh release create "$env:RELEASE_TAG"
+          "dist/SPSS-Codebook-Rescue-Windows.zip"
+          "dist/SPSS-Codebook-Rescue-Windows.zip.sha256"
+          --generate-notes
+          --title "SPSS Codebook Rescue $env:RELEASE_TAG"

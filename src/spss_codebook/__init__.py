@@ -1,4 +1,4 @@
-"""SPSS Codebook Generator."""
+"""SPSS Codebook Rescue."""
 
 __all__ = ["__version__"]
 
